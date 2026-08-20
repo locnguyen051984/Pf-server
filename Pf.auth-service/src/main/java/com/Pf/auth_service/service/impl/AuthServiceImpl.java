@@ -19,8 +19,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -132,6 +134,59 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         passwordResetOtpRepository.delete(resetOtp);
-        log.info("Người dùng {} đã đổi mật khẩu thành công", user.getUsername());
+        
+        // Ghi log vào DB thay vì in ra console
+        AuditLog audit = AuditLog.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .action("RESET_PASSWORD")
+                .details("Người dùng đã đổi mật khẩu thành công")
+                .createdAt(LocalDateTime.now())
+                .build();
+        auditLogRepository.save(audit);
+    }
+    @Override
+    public List<com.Pf.auth_service.dto.UserDTO> getAllUsers() {
+        return userRepository.findAll().stream().map(this::mapToUserDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void banUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + id));
+        user.setActive(false);
+        userRepository.save(user);
+        
+        // Ghi log vào DB thay vì in ra console
+        AuditLog audit = AuditLog.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .action("BAN_USER")
+                .details("Tài khoản đã bị khóa (ban)")
+                .createdAt(LocalDateTime.now())
+                .build();
+        auditLogRepository.save(audit);
+    }
+
+    @Override
+    @Transactional
+    public void deleteUser(Long id) {
+        banUser(id);
+    }
+
+    private com.Pf.auth_service.dto.UserDTO mapToUserDTO(User user) {
+        return com.Pf.auth_service.dto.UserDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .address(user.getAddress())
+                .fullName(user.getFullName())
+                .role(user.getRole())
+                .active(user.getActive())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
     }
 }

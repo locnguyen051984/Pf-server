@@ -9,7 +9,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.Pf.auth_service.dto.UserDTO;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -71,6 +78,23 @@ public class AuthController {
     // ==========================================
     // TEST ROLE (Sẽ cần user có token hợp lệ để test)
     // ==========================================
+
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
+        return ResponseEntity.ok(authService.getAllUsers());
+    }
+
+    @DeleteMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> deleteUser(@PathVariable Long id) {
+        try {
+            authService.deleteUser(id);
+            return ResponseEntity.ok("Người dùng đã bị khóa (ban) thành công");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 
     @org.springframework.web.bind.annotation.GetMapping("/admin-test")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
