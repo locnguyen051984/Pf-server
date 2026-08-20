@@ -9,4 +9,7 @@ import com.Pf.auth_service.dto.RegisterResponse;
 public interface AuthService {
     RegisterResponse register(RegisterRequest request);
     AuthResponse login(LoginRequest request);
+    
+    void forgotPassword(String email);
+    void resetPassword(String otp, String newPassword);
 }

@@ -5,9 +5,11 @@ import com.Pf.auth_service.dto.LoginRequest;
 import com.Pf.auth_service.dto.RegisterRequest;
 import com.Pf.auth_service.dto.RegisterResponse;
 import com.Pf.auth_service.entity.AuditLog;
+import com.Pf.auth_service.entity.PasswordResetOtp;
 import com.Pf.auth_service.entity.Role;
 import com.Pf.auth_service.entity.User;
 import com.Pf.auth_service.repository.AuditLogRepository;
+import com.Pf.auth_service.repository.PasswordResetOtpRepository;
 import com.Pf.auth_service.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,6 +34,9 @@ class AuthServiceImplTest {
 
     @Mock
     private AuditLogRepository auditLogRepository;
+
+    @Mock
+    private PasswordResetOtpRepository passwordResetOtpRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -119,7 +125,6 @@ class AuthServiceImplTest {
         assertNotNull(response);
         assertEquals(1L, response.getId());
         assertEquals("testuser", response.getUsername());
-        assertEquals("Chưa có JWT", response.getToken());
     }
 
     @Test
@@ -157,5 +162,80 @@ class AuthServiceImplTest {
         });
 
         assertEquals("Sai tài khoản hoặc mật khẩu", exception.getMessage());
+    }
+
+    @Test
+    void forgotPassword_Success() {
+        // Arrange
+        String email = "test@example.com";
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(testUser));
+        when(passwordResetOtpRepository.save(any(PasswordResetOtp.class))).thenReturn(new PasswordResetOtp());
+
+        // Act
+        assertDoesNotThrow(() -> authService.forgotPassword(email));
+
+        // Assert
+        verify(passwordResetOtpRepository, times(1)).deleteByUser(testUser);
+        verify(passwordResetOtpRepository, times(1)).save(any(PasswordResetOtp.class));
+    }
+
+    @Test
+    void forgotPassword_Fail_EmailNotFound() {
+        // Arrange
+        String email = "unknown@example.com";
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            authService.forgotPassword(email);
+        });
+
+        assertEquals("Không tìm thấy người dùng với email này", exception.getMessage());
+    }
+
+    @Test
+    void resetPassword_Success() {
+        // Arrange
+        String otp = "123456";
+        String newPassword = "newPassword123";
+        PasswordResetOtp otpEntity = PasswordResetOtp.builder()
+                .otp(otp)
+                .user(testUser)
+                .expiryDate(LocalDateTime.now().plusMinutes(15))
+                .build();
+
+        when(passwordResetOtpRepository.findByOtp(otp)).thenReturn(Optional.of(otpEntity));
+        when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
+
+        // Act
+        assertDoesNotThrow(() -> authService.resetPassword(otp, newPassword));
+
+        // Assert
+        verify(userRepository, times(1)).save(testUser);
+        verify(passwordResetOtpRepository, times(1)).delete(otpEntity);
+        assertEquals("encodedNewPassword", testUser.getPasswordHash());
+    }
+
+    @Test
+    void resetPassword_Fail_OtpExpired() {
+        // Arrange
+        String otp = "123456";
+        String newPassword = "newPassword123";
+        PasswordResetOtp otpEntity = PasswordResetOtp.builder()
+                .otp(otp)
+                .user(testUser)
+                .expiryDate(LocalDateTime.now().minusMinutes(5)) // Đã hết hạn
+                .build();
+
+        when(passwordResetOtpRepository.findByOtp(otp)).thenReturn(Optional.of(otpEntity));
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            authService.resetPassword(otp, newPassword);
+        });
+
+        assertEquals("Mã xác nhận đã hết hạn", exception.getMessage());
+        verify(passwordResetOtpRepository, times(1)).delete(otpEntity);
+        verify(userRepository, never()).save(any());
     }
 }

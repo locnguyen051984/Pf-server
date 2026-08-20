@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -35,6 +36,35 @@ public class AuthController {
             return ResponseEntity.ok(result);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            if (email == null || email.isEmpty()) {
+                return ResponseEntity.badRequest().body("Vui lòng cung cấp email");
+            }
+            authService.forgotPassword(email);
+            return ResponseEntity.ok("Mã xác nhận đã được gửi đến email của bạn (Vui lòng kiểm tra Console log)");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
+        try {
+            String otp = request.get("otp");
+            String newPassword = request.get("newPassword");
+            if (otp == null || newPassword == null) {
+                return ResponseEntity.badRequest().body("Vui lòng cung cấp otp và newPassword");
+            }
+            authService.resetPassword(otp, newPassword);
+            return ResponseEntity.ok("Mật khẩu đã được đặt lại thành công");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
