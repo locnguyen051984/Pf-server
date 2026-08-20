@@ -4,8 +4,10 @@ import com.Pf.auth_service.dto.AuthResponse;
 import com.Pf.auth_service.dto.LoginRequest;
 import com.Pf.auth_service.dto.RegisterRequest;
 import com.Pf.auth_service.dto.RegisterResponse;
+import com.Pf.auth_service.entity.AuditLog;
 import com.Pf.auth_service.entity.Role;
 import com.Pf.auth_service.entity.User;
+import com.Pf.auth_service.repository.AuditLogRepository;
 import com.Pf.auth_service.repository.UserRepository;
 import com.Pf.auth_service.service.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -20,6 +23,7 @@ import java.util.Optional;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final AuditLogRepository auditLogRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -60,6 +64,16 @@ public class AuthServiceImpl implements AuthService {
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             if (passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+                
+                AuditLog log = AuditLog.builder()
+                        .userId(user.getId())
+                        .username(user.getUsername())
+                        .action("LOGIN")
+                        .details("Người dùng đăng nhập thành công")
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                auditLogRepository.save(log);
+
                 return AuthResponse.builder()
                         .id(user.getId())
                         .username(user.getUsername())
