@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -18,7 +19,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<com.Pf.auth_service.dto.RegisterResponse> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<com.Pf.auth_service.dto.RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         try {
             com.Pf.auth_service.dto.RegisterResponse result = authService.register(request);
             return ResponseEntity.ok(result);
@@ -28,7 +29,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<com.Pf.auth_service.dto.AuthResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<com.Pf.auth_service.dto.AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         try {
             com.Pf.auth_service.dto.AuthResponse result = authService.login(request);
             return ResponseEntity.ok(result);
@@ -48,8 +49,8 @@ public class AuthController {
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/user-test")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     public ResponseEntity<String> testUserRole() {
-        return ResponseEntity.ok("Xin chào USER hoặc ADMIN, API này dành cho bạn!");
+        return ResponseEntity.ok("Xin chào CUSTOMER hoặc ADMIN, API này dành cho bạn!");
     }
 }

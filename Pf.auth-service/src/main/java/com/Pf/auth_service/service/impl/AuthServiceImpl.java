@@ -37,7 +37,7 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .email(request.getEmail())
                 .fullName(request.getFullName())
-                .role(Role.USER) // Mặc định role là USER
+                .role(Role.CUSTOMER) // Mặc định role là CUSTOMER
                 .active(true)
                 .build();
 
