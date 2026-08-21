@@ -1,27 +1,32 @@
 package com.Pf.auth_service.service.impl;
 
 import com.Pf.auth_service.dto.AuthResponse;
+import com.Pf.auth_service.dto.GoogleLoginRequest;
 import com.Pf.auth_service.dto.LoginRequest;
 import com.Pf.auth_service.dto.RegisterRequest;
 import com.Pf.auth_service.dto.RegisterResponse;
 import com.Pf.auth_service.entity.AuditLog;
-import com.Pf.auth_service.entity.PasswordResetOtp;
 import com.Pf.auth_service.entity.Role;
 import com.Pf.auth_service.entity.User;
 import com.Pf.auth_service.repository.AuditLogRepository;
-import com.Pf.auth_service.repository.PasswordResetOtpRepository;
 import com.Pf.auth_service.repository.UserRepository;
 import com.Pf.auth_service.service.AuthService;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,8 +36,10 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
-    private final PasswordResetOtpRepository passwordResetOtpRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${google.client.id:YOUR_GOOGLE_CLIENT_ID}")
+    private String googleClientId;
 
     @Override
     @Transactional
@@ -40,14 +47,14 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username đã tồn tại");
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email đã được sử dụng");
+        if (userRepository.existsByPhone(request.getPhone())) {
+            throw new RuntimeException("Số điện thoại đã được sử dụng");
         }
 
         User user = User.builder()
                 .username(request.getUsername())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .email(request.getEmail())
+                .phone(request.getPhone())
                 .fullName(request.getFullName())
                 .role(Role.CUSTOMER) // Mặc định role là CUSTOMER
                 .active(true)
@@ -67,20 +74,20 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        Optional<User> userOptional = userRepository.findByUsername(request.getUsername());
+        Optional<User> userOptional = userRepository.findByPhone(request.getPhone());
 
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            if (passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            if (user.getPasswordHash() != null && passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
                 
-                AuditLog log = AuditLog.builder()
+                AuditLog logAction = AuditLog.builder()
                         .userId(user.getId())
                         .username(user.getUsername())
                         .action("LOGIN")
-                        .details("Người dùng đăng nhập thành công")
+                        .details("Người dùng đăng nhập thành công bằng Số điện thoại")
                         .createdAt(LocalDateTime.now())
                         .build();
-                auditLogRepository.save(log);
+                auditLogRepository.save(logAction);
 
                 return AuthResponse.builder()
                         .id(user.getId())
@@ -91,60 +98,76 @@ public class AuthServiceImpl implements AuthService {
                         .build();
             }
         }
-        throw new RuntimeException("Sai tài khoản hoặc mật khẩu");
+        throw new RuntimeException("Sai số điện thoại hoặc mật khẩu");
     }
 
     @Override
     @Transactional
-    public void forgotPassword(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email này"));
+    public AuthResponse googleLogin(GoogleLoginRequest request) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
 
-        passwordResetOtpRepository.deleteByUser(user);
+            GoogleIdToken idToken = verifier.verify(request.getIdToken());
+            if (idToken != null) {
+                Payload payload = idToken.getPayload();
+                String userId = payload.getSubject();
+                String email = payload.getEmail();
+                String name = (String) payload.get("name");
 
-        String otp = String.format("%06d", new Random().nextInt(999999));
+                Optional<User> userOptional = userRepository.findByGoogleAccountId(userId);
+                User user;
 
-        PasswordResetOtp resetOtp = PasswordResetOtp.builder()
-                .otp(otp)
-                .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(15))
-                .build();
-        passwordResetOtpRepository.save(resetOtp);
+                if (userOptional.isPresent()) {
+                    user = userOptional.get();
+                } else {
+                    // Kiểm tra xem email đã tồn tại do đăng ký trước đó hay không
+                    Optional<User> emailUserOptional = email != null ? userRepository.findByEmail(email) : Optional.empty();
+                    if (emailUserOptional.isPresent()) {
+                        user = emailUserOptional.get();
+                        user.setGoogleAccountId(userId);
+                        userRepository.save(user);
+                    } else {
+                        // Tạo user mới nếu chưa tồn tại
+                        user = User.builder()
+                                .googleAccountId(userId)
+                                .email(email)
+                                .username("google_" + userId) // Tự sinh username
+                                .fullName(name)
+                                .role(Role.CUSTOMER)
+                                .active(true)
+                                .build();
+                        userRepository.save(user);
+                    }
+                }
 
-        log.info("=====================================================");
-        log.info("📧 GIẢ LẬP GỬI EMAIL");
-        log.info("Đến: {}", email);
-        log.info("Nội dung: Mã xác nhận đổi mật khẩu của bạn là: {}", otp);
-        log.info("=====================================================");
-    }
+                AuditLog logAction = AuditLog.builder()
+                        .userId(user.getId())
+                        .username(user.getUsername())
+                        .action("GOOGLE_LOGIN")
+                        .details("Người dùng đăng nhập bằng Google")
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                auditLogRepository.save(logAction);
 
-    @Override
-    @Transactional
-    public void resetPassword(String otp, String newPassword) {
-        PasswordResetOtp resetOtp = passwordResetOtpRepository.findByOtp(otp)
-                .orElseThrow(() -> new RuntimeException("Mã xác nhận không tồn tại hoặc không chính xác"));
+                return AuthResponse.builder()
+                        .id(user.getId())
+                        .username(user.getUsername())
+                        .email(user.getEmail())
+                        .fullName(user.getFullName())
+                        .role(user.getRole().name())
+                        .build();
 
-        if (resetOtp.getExpiryDate().isBefore(LocalDateTime.now())) {
-            passwordResetOtpRepository.delete(resetOtp);
-            throw new RuntimeException("Mã xác nhận đã hết hạn");
+            } else {
+                throw new RuntimeException("ID Token của Google không hợp lệ.");
+            }
+        } catch (Exception e) {
+            log.error("Google login failed", e);
+            throw new RuntimeException("Đăng nhập bằng Google thất bại: " + e.getMessage());
         }
-
-        User user = resetOtp.getUser();
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-
-        passwordResetOtpRepository.delete(resetOtp);
-        
-        // Ghi log vào DB thay vì in ra console
-        AuditLog audit = AuditLog.builder()
-                .userId(user.getId())
-                .username(user.getUsername())
-                .action("RESET_PASSWORD")
-                .details("Người dùng đã đổi mật khẩu thành công")
-                .createdAt(LocalDateTime.now())
-                .build();
-        auditLogRepository.save(audit);
     }
+
     @Override
     public List<com.Pf.auth_service.dto.UserDTO> getAllUsers() {
         return userRepository.findAll().stream().map(this::mapToUserDTO).collect(Collectors.toList());
@@ -158,7 +181,6 @@ public class AuthServiceImpl implements AuthService {
         user.setActive(false);
         userRepository.save(user);
         
-        // Ghi log vào DB thay vì in ra console
         AuditLog audit = AuditLog.builder()
                 .userId(user.getId())
                 .username(user.getUsername())

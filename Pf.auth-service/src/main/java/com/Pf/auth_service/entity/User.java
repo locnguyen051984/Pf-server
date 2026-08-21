@@ -36,14 +36,17 @@ public class User implements Serializable {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     private String passwordHash;
 
-    @Column(name = "email", nullable = false, unique = true, length = 100)
+    @Column(name = "email", unique = true, length = 100)
     private String email;
 
-    @Column(name = "phone", length = 20)
+    @Column(name = "phone", unique = true, length = 20)
     private String phone;
+
+    @Column(name = "google_account_id", unique = true, length = 100)
+    private String googleAccountId;
 
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;

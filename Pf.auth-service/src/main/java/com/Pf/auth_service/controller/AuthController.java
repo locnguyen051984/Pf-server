@@ -1,5 +1,6 @@
 package com.Pf.auth_service.controller;
 
+import com.Pf.auth_service.dto.GoogleLoginRequest;
 import com.Pf.auth_service.dto.LoginRequest;
 import com.Pf.auth_service.dto.RegisterRequest;
 import com.Pf.auth_service.service.AuthService;
@@ -46,32 +47,13 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> request) {
+    @PostMapping("/google")
+    public ResponseEntity<com.Pf.auth_service.dto.AuthResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
         try {
-            String email = request.get("email");
-            if (email == null || email.isEmpty()) {
-                return ResponseEntity.badRequest().body("Vui lòng cung cấp email");
-            }
-            authService.forgotPassword(email);
-            return ResponseEntity.ok("Mã xác nhận đã được gửi đến email của bạn (Vui lòng kiểm tra Console log)");
+            com.Pf.auth_service.dto.AuthResponse result = authService.googleLogin(request);
+            return ResponseEntity.ok(result);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
-        try {
-            String otp = request.get("otp");
-            String newPassword = request.get("newPassword");
-            if (otp == null || newPassword == null) {
-                return ResponseEntity.badRequest().body("Vui lòng cung cấp otp và newPassword");
-            }
-            authService.resetPassword(otp, newPassword);
-            return ResponseEntity.ok("Mật khẩu đã được đặt lại thành công");
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().build();
         }
     }
 

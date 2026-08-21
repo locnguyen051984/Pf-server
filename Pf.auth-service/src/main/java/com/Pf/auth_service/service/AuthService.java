@@ -10,9 +10,7 @@ import java.util.List;
 public interface AuthService {
     RegisterResponse register(RegisterRequest request);
     AuthResponse login(LoginRequest request);
-    
-    void forgotPassword(String email);
-    void resetPassword(String otp, String newPassword);
+    AuthResponse googleLogin(com.Pf.auth_service.dto.GoogleLoginRequest request);
     
     List<UserDTO> getAllUsers();
     void banUser(Long id);

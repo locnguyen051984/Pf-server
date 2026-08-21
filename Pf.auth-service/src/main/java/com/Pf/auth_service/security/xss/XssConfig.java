@@ -1,6 +1,5 @@
 package com.Pf.auth_service.security.xss;
 
-import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,8 +18,9 @@ public class XssConfig {
     }
 
     @Bean
-    public Jackson2ObjectMapperBuilderCustomizer xssObjectMapperBuilderCustomizer() {
-        // Áp dụng custom deserializer cho mọi trường kiểu String
-        return builder -> builder.deserializerByType(String.class, new XssJacksonDeserializer());
+    public com.fasterxml.jackson.databind.Module xssModule() {
+        com.fasterxml.jackson.databind.module.SimpleModule module = new com.fasterxml.jackson.databind.module.SimpleModule();
+        module.addDeserializer(String.class, new XssJacksonDeserializer());
+        return module;
     }
 }

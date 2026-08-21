@@ -11,11 +11,8 @@ import jakarta.validation.constraints.NotBlank;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginRequest {
+public class GoogleLoginRequest {
     
-    @NotBlank(message = "Số điện thoại không được để trống")
-    private String phone;
-    
-    @NotBlank(message = "Password không được để trống")
-    private String password;
+    @NotBlank(message = "ID Token không được để trống")
+    private String idToken;
 }
