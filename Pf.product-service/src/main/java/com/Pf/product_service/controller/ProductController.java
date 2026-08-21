@@ -1,10 +1,12 @@
 package com.Pf.product_service.controller;
 
 import com.Pf.product_service.dto.request.CreateProductRequest;
+import com.Pf.product_service.dto.request.ImageRequest;
+import com.Pf.product_service.dto.request.UpdateProductRequest;
+import com.Pf.product_service.dto.response.ImageResponse;
 import com.Pf.product_service.dto.response.ProductListResponse;
 import com.Pf.product_service.dto.response.ProductResponse;
 import com.Pf.product_service.service.ProductService;
-import com.Pf.product_service.dto.response.ProductListResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -15,7 +17,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -47,6 +48,32 @@ public class ProductController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         productService.softDeleteProduct(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductResponse> updateProduct(
+            @PathVariable Long id,
+            @RequestBody UpdateProductRequest request) {
+        return ResponseEntity.ok(productService.updateProduct(id, request));
+    }
+
+    @PostMapping("/{id}/images")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ImageResponse> addImage(
+            @PathVariable Long id,
+            @Valid @RequestBody ImageRequest request) {
+        ImageResponse response = productService.addImage(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @DeleteMapping("/{id}/images/{imageId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteImage(
+            @PathVariable Long id,
+            @PathVariable Long imageId) {
+        productService.deleteImage(id, imageId);
         return ResponseEntity.noContent().build();
     }
 }

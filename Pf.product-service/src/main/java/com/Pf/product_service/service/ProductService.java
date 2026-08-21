@@ -2,9 +2,13 @@ package com.Pf.product_service.service;
 
 import com.Pf.product_service.dto.request.CreateProductRequest;
 import com.Pf.product_service.dto.request.ImageRequest;
+import com.Pf.product_service.dto.request.UpdateProductRequest;
+import com.Pf.product_service.dto.request.UpdateVariantRequest;
 import com.Pf.product_service.dto.request.VariantRequest;
+import com.Pf.product_service.dto.response.ImageResponse;
 import com.Pf.product_service.dto.response.ProductListResponse;
 import com.Pf.product_service.dto.response.ProductResponse;
+import com.Pf.product_service.dto.response.VariantResponse;
 import com.Pf.product_service.entity.*;
 import com.Pf.product_service.exception.ResourceNotFoundException;
 import com.Pf.product_service.mapper.ProductMapper;
@@ -109,5 +113,89 @@ public class ProductService {
 
                 product.setStatus(ProductStatus.DELETED);
                 productRepository.save(product);
+        }
+
+        @Transactional
+        public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
+                Product product = productRepository.findByIdNotStatus(id, ProductStatus.DELETED)
+                                .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
+
+                if (request.getName() != null) {
+                        product.setName(request.getName());
+                }
+                if (request.getDescription() != null) {
+                        product.setDescription(request.getDescription());
+                }
+                if (request.getOrigin() != null) {
+                        product.setOrigin(request.getOrigin());
+                }
+                if (request.getCategoryId() != null) {
+                        Category category = categoryRepository.findById(request.getCategoryId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found: " + request.getCategoryId()));
+                        product.setCategory(category);
+                }
+
+                Product updated = productRepository.save(product);
+
+                List<ProductVariant> variants = variantRepository.findByProductId(id);
+                List<ProductImage> images = imageRepository.findByProductIdOrderByDisplayOrderAsc(id);
+
+                return productMapper.toResponse(updated, variants, images);
+        }
+
+        @Transactional
+        public VariantResponse updateVariant(Long variantId, UpdateVariantRequest request) {
+                ProductVariant variant = variantRepository.findById(variantId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + variantId));
+
+                if (request.getSku() != null) {
+                        variant.setSku(request.getSku());
+                }
+                if (request.getPrice() != null) {
+                        variant.setPrice(request.getPrice());
+                }
+                if (request.getColorId() != null) {
+                        Color color = colorRepository.findById(request.getColorId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Color not found: " + request.getColorId()));
+                        variant.setColor(color);
+                }
+                if (request.getSizeId() != null) {
+                        Size size = sizeRepository.findById(request.getSizeId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Size not found: " + request.getSizeId()));
+                        variant.setSize(size);
+                }
+
+                ProductVariant updated = variantRepository.save(variant);
+                return productMapper.toVariantResponse(updated);
+        }
+
+        @Transactional
+        public ImageResponse addImage(Long productId, ImageRequest request) {
+                Product product = productRepository.findByIdNotStatus(productId, ProductStatus.DELETED)
+                                .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + productId));
+
+                ProductImage image = ProductImage.builder()
+                                .product(product)
+                                .imageUrl(request.getImageUrl())
+                                .displayOrder(request.getDisplayOrder() == null ? 0 : request.getDisplayOrder())
+                                .build();
+
+                ProductImage saved = imageRepository.save(image);
+                return productMapper.toImageResponse(saved);
+        }
+
+        @Transactional
+        public void deleteImage(Long productId, Long imageId) {
+                ProductImage image = imageRepository.findById(imageId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Image not found: " + imageId));
+
+                if (!image.getProduct().getId().equals(productId)) {
+                        throw new ResourceNotFoundException("Image not found: " + imageId);
+                }
+
+                imageRepository.delete(image);
         }
 }
