@@ -16,6 +16,10 @@ import com.Pf.product_service.mapper.ProductMapper;
 import com.Pf.product_service.repository.*;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -34,8 +38,10 @@ public class ProductService {
         private final ColorRepository colorRepository;
         private final SizeRepository sizeRepository;
         private final ProductMapper productMapper;
+        private final CacheManager cacheManager;
 
         @Transactional
+        @CacheEvict(value = "product:list", allEntries = true)
         public ProductResponse createProduct(CreateProductRequest request) {
                 Category category = categoryRepository.findById(request.getCategoryId())
                                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -92,11 +98,13 @@ public class ProductService {
                                 .build();
         }
 
+        @Cacheable(value = "product:list", key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort", condition = "#pageable.pageNumber == 0 and #pageable.pageSize == 20")
         public Page<ProductListResponse> listProducts(Pageable pageable) {
                 return productRepository.findAllNotStatus(ProductStatus.DELETED, pageable)
                                 .map(productMapper::toListResponse);
         }
 
+        @Cacheable(value = "product:detail", key = "#id")
         public ProductResponse getProductDetail(Long id) {
                 Product product = productRepository.findByIdNotStatus(id, ProductStatus.DELETED)
                                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
@@ -108,6 +116,10 @@ public class ProductService {
         }
 
         @Transactional
+        @Caching(evict = {
+                        @CacheEvict(value = "product:detail", key = "#id"),
+                        @CacheEvict(value = "product:list", allEntries = true)
+        })
         public void softDeleteProduct(Long id) {
                 Product product = productRepository.findByIdNotStatus(id, ProductStatus.DELETED)
                                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
@@ -117,6 +129,7 @@ public class ProductService {
         }
 
         @Transactional
+        @CacheEvict(value = "product:detail", key = "#id")
         public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
                 Product product = productRepository.findByIdNotStatus(id, ProductStatus.DELETED)
                                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
@@ -170,10 +183,14 @@ public class ProductService {
                 }
 
                 ProductVariant updated = variantRepository.save(variant);
+                evictProductDetailCache(updated.getProduct().getId());
+
                 return productMapper.toVariantResponse(updated);
         }
 
         @Transactional
+        @CacheEvict(value = "product:detail", key = "#productId")
+
         public ImageResponse addImage(Long productId, ImageRequest request) {
                 Product product = productRepository.findByIdNotStatus(productId, ProductStatus.DELETED)
                                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + productId));
@@ -189,6 +206,8 @@ public class ProductService {
         }
 
         @Transactional
+        @CacheEvict(value = "product:detail", key = "#productId")
+
         public void deleteImage(Long productId, Long imageId) {
                 ProductImage image = imageRepository.findById(imageId)
                                 .orElseThrow(() -> new ResourceNotFoundException("Image not found: " + imageId));
@@ -213,6 +232,13 @@ public class ProductService {
                 int affectedRows = variantRepository.increaseStock(variantId, qty);
                 if (affectedRows == 0) {
                         throw new ResourceNotFoundException("Variant not found: " + variantId);
+                }
+        }
+
+        private void evictProductDetailCache(Long productId) {
+                var cache = cacheManager.getCache("product:detail");
+                if (cache != null) {
+                        cache.evict(productId);
                 }
         }
 }
