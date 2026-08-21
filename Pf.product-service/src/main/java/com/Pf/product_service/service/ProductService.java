@@ -10,6 +10,7 @@ import com.Pf.product_service.dto.response.ProductListResponse;
 import com.Pf.product_service.dto.response.ProductResponse;
 import com.Pf.product_service.dto.response.VariantResponse;
 import com.Pf.product_service.entity.*;
+import com.Pf.product_service.exception.InsufficientStockException;
 import com.Pf.product_service.exception.ResourceNotFoundException;
 import com.Pf.product_service.mapper.ProductMapper;
 import com.Pf.product_service.repository.*;
@@ -197,5 +198,21 @@ public class ProductService {
                 }
 
                 imageRepository.delete(image);
+        }
+
+        @Transactional
+        public void decreaseStock(Long variantId, Integer qty) {
+                int affectedRows = variantRepository.decreaseStock(variantId, qty);
+                if (affectedRows == 0) {
+                        throw new InsufficientStockException("Not enough stock or variant not found: " + variantId);
+                }
+        }
+
+        @Transactional
+        public void increaseStock(Long variantId, Integer qty) {
+                int affectedRows = variantRepository.increaseStock(variantId, qty);
+                if (affectedRows == 0) {
+                        throw new ResourceNotFoundException("Variant not found: " + variantId);
+                }
         }
 }

@@ -1,5 +1,6 @@
 package com.Pf.product_service.controller;
 
+import com.Pf.product_service.dto.request.StockUpdateRequest;
 import com.Pf.product_service.dto.request.UpdateVariantRequest;
 import com.Pf.product_service.dto.response.VariantResponse;
 import com.Pf.product_service.service.ProductService;
@@ -22,5 +23,23 @@ public class VariantController {
             @PathVariable Long id,
             @Valid @RequestBody UpdateVariantRequest request) {
         return ResponseEntity.ok(productService.updateVariant(id, request));
+    }
+
+    @PatchMapping("/{id}/stock/decrease")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> decreaseStock(
+            @PathVariable Long id,
+            @Valid @RequestBody StockUpdateRequest request) {
+        productService.decreaseStock(id, request.getQuantity());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/stock/increase")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> increaseStock(
+            @PathVariable Long id,
+            @Valid @RequestBody StockUpdateRequest request) {
+        productService.increaseStock(id, request.getQuantity());
+        return ResponseEntity.noContent().build();
     }
 }
