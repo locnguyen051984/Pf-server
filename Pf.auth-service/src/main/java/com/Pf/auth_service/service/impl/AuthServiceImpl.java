@@ -11,6 +11,11 @@ import com.Pf.auth_service.entity.User;
 import com.Pf.auth_service.repository.AuditLogRepository;
 import com.Pf.auth_service.repository.UserRepository;
 import com.Pf.auth_service.service.AuthService;
+import com.Pf.auth_service.exception.InvalidCredentialsException;
+import com.Pf.auth_service.exception.InvalidTokenException;
+import com.Pf.auth_service.exception.PhoneAlreadyExistsException;
+import com.Pf.auth_service.exception.UserAlreadyExistsException;
+import com.Pf.auth_service.exception.UserNotFoundException;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
@@ -45,10 +50,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username đã tồn tại");
+            throw new UserAlreadyExistsException("Username đã tồn tại");
         }
         if (userRepository.existsByPhone(request.getPhone())) {
-            throw new RuntimeException("Số điện thoại đã được sử dụng");
+            throw new PhoneAlreadyExistsException("Số điện thoại đã được sử dụng");
         }
 
         User user = User.builder()
@@ -75,10 +80,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByPhone(request.getPhone())
-                .orElseThrow(() -> new RuntimeException("Sai số điện thoại hoặc mật khẩu"));
+                .orElseThrow(() -> new InvalidCredentialsException("Sai số điện thoại hoặc mật khẩu"));
 
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Sai số điện thoại hoặc mật khẩu");
+            throw new InvalidCredentialsException("Sai số điện thoại hoặc mật khẩu");
         }
 
         AuditLog logAction = AuditLog.builder()
@@ -110,11 +115,11 @@ public class AuthServiceImpl implements AuthService {
             idToken = verifier.verify(request.getIdToken());
         } catch (Exception e) {
             log.error("Google login failed", e);
-            throw new RuntimeException("Đăng nhập bằng Google thất bại: " + e.getMessage());
+            throw new InvalidTokenException("Đăng nhập bằng Google thất bại: " + e.getMessage(), e);
         }
 
         if (idToken == null) {
-            throw new RuntimeException("ID Token của Google không hợp lệ.");
+            throw new InvalidTokenException("ID Token của Google không hợp lệ.");
         }
 
         Payload payload = idToken.getPayload();
@@ -171,7 +176,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void banUser(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + id));
+                .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng với ID: " + id));
         user.setActive(false);
         userRepository.save(user);
         
