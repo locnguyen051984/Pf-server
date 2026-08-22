@@ -129,7 +129,10 @@ public class ProductService {
         }
 
         @Transactional
-        @CacheEvict(value = "product:detail", key = "#id")
+        @Caching(evict = {
+                        @CacheEvict(value = "product:detail", key = "#id"),
+                        @CacheEvict(value = "product:list", allEntries = true)
+        })
         public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
                 Product product = productRepository.findByIdNotStatus(id, ProductStatus.DELETED)
                                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
@@ -225,6 +228,9 @@ public class ProductService {
                 if (affectedRows == 0) {
                         throw new InsufficientStockException("Not enough stock or variant not found: " + variantId);
                 }
+                ProductVariant variant = variantRepository.findById(variantId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + variantId));
+                evictProductDetailCache(variant.getProduct().getId());
         }
 
         @Transactional
@@ -233,6 +239,9 @@ public class ProductService {
                 if (affectedRows == 0) {
                         throw new ResourceNotFoundException("Variant not found: " + variantId);
                 }
+                ProductVariant variant = variantRepository.findById(variantId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + variantId));
+                evictProductDetailCache(variant.getProduct().getId());
         }
 
         private void evictProductDetailCache(Long productId) {

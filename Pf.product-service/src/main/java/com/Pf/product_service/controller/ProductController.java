@@ -27,7 +27,6 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody CreateProductRequest request) {
         ProductResponse response = productService.createProduct(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -45,14 +44,12 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         productService.softDeleteProduct(id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> updateProduct(
             @PathVariable Long id,
             @RequestBody UpdateProductRequest request) {
@@ -60,7 +57,6 @@ public class ProductController {
     }
 
     @PostMapping("/{id}/images")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ImageResponse> addImage(
             @PathVariable Long id,
             @Valid @RequestBody ImageRequest request) {
@@ -69,7 +65,6 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}/images/{imageId}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteImage(
             @PathVariable Long id,
             @PathVariable Long imageId) {
