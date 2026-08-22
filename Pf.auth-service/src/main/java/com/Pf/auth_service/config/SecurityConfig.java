@@ -31,7 +31,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Kích hoạt cấu hình CORS
             .csrf(AbstractHttpConfigurer::disable) // Tạm tắt CSRF vì chưa dùng token
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/forgot-password", "/api/auth/reset-password").permitAll() // Cho phép truy cập tự do
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/google", "/api/auth/forgot-password", "/api/auth/reset-password").permitAll() // Cho phép truy cập tự do
                 .anyRequest().authenticated()
             );
         

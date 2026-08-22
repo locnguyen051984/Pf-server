@@ -1,6 +1,7 @@
 package com.Pf.auth_service.config;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -16,8 +17,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         // Áp dụng Rate Limiting cho tất cả các endpoint thuộc /api/**
-        // Có thể thay đổi path để phù hợp với router thực tế
         registry.addInterceptor(rateLimitInterceptor)
                 .addPathPatterns("/api/**"); 
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOriginPatterns("*") // Cho phép tất cả các origin
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Các method cho phép
+                .allowedHeaders("*") // Cho phép tất cả các header
+                .allowCredentials(true) // Cho phép mang theo cookie/credential
+                .maxAge(3600);
     }
 }
