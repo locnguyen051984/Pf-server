@@ -74,98 +74,92 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        Optional<User> userOptional = userRepository.findByPhone(request.getPhone());
+        User user = userRepository.findByPhone(request.getPhone())
+                .orElseThrow(() -> new RuntimeException("Sai số điện thoại hoặc mật khẩu"));
 
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            if (user.getPasswordHash() != null && passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-                
-                AuditLog logAction = AuditLog.builder()
-                        .userId(user.getId())
-                        .username(user.getUsername())
-                        .action("LOGIN")
-                        .details("Người dùng đăng nhập thành công bằng Số điện thoại")
-                        .createdAt(LocalDateTime.now())
-                        .build();
-                auditLogRepository.save(logAction);
-
-                return AuthResponse.builder()
-                        .id(user.getId())
-                        .username(user.getUsername())
-                        .email(user.getEmail())
-                        .fullName(user.getFullName())
-                        .role(user.getRole().name())
-                        .build();
-            }
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            throw new RuntimeException("Sai số điện thoại hoặc mật khẩu");
         }
-        throw new RuntimeException("Sai số điện thoại hoặc mật khẩu");
+
+        AuditLog logAction = AuditLog.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .action("LOGIN")
+                .details("Người dùng đăng nhập thành công bằng Số điện thoại")
+                .createdAt(LocalDateTime.now())
+                .build();
+        auditLogRepository.save(logAction);
+
+        return AuthResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole().name())
+                .build();
     }
 
     @Override
     @Transactional
     public AuthResponse googleLogin(GoogleLoginRequest request) {
+        GoogleIdToken idToken;
         try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
                     .setAudience(Collections.singletonList(googleClientId))
                     .build();
-
-            GoogleIdToken idToken = verifier.verify(request.getIdToken());
-            if (idToken != null) {
-                Payload payload = idToken.getPayload();
-                String userId = payload.getSubject();
-                String email = payload.getEmail();
-                String name = (String) payload.get("name");
-
-                Optional<User> userOptional = userRepository.findByGoogleAccountId(userId);
-                User user;
-
-                if (userOptional.isPresent()) {
-                    user = userOptional.get();
-                } else {
-                    // Kiểm tra xem email đã tồn tại do đăng ký trước đó hay không
-                    Optional<User> emailUserOptional = email != null ? userRepository.findByEmail(email) : Optional.empty();
-                    if (emailUserOptional.isPresent()) {
-                        user = emailUserOptional.get();
-                        user.setGoogleAccountId(userId);
-                        userRepository.save(user);
-                    } else {
-                        // Tạo user mới nếu chưa tồn tại
-                        user = User.builder()
-                                .googleAccountId(userId)
-                                .email(email)
-                                .username("google_" + userId) // Tự sinh username
-                                .fullName(name)
-                                .role(Role.CUSTOMER)
-                                .active(true)
-                                .build();
-                        userRepository.save(user);
-                    }
-                }
-
-                AuditLog logAction = AuditLog.builder()
-                        .userId(user.getId())
-                        .username(user.getUsername())
-                        .action("GOOGLE_LOGIN")
-                        .details("Người dùng đăng nhập bằng Google")
-                        .createdAt(LocalDateTime.now())
-                        .build();
-                auditLogRepository.save(logAction);
-
-                return AuthResponse.builder()
-                        .id(user.getId())
-                        .username(user.getUsername())
-                        .email(user.getEmail())
-                        .fullName(user.getFullName())
-                        .role(user.getRole().name())
-                        .build();
-
-            } else {
-                throw new RuntimeException("ID Token của Google không hợp lệ.");
-            }
+            idToken = verifier.verify(request.getIdToken());
         } catch (Exception e) {
             log.error("Google login failed", e);
             throw new RuntimeException("Đăng nhập bằng Google thất bại: " + e.getMessage());
         }
+
+        if (idToken == null) {
+            throw new RuntimeException("ID Token của Google không hợp lệ.");
+        }
+
+        Payload payload = idToken.getPayload();
+        String userId = payload.getSubject();
+        String email = payload.getEmail();
+        String name = (String) payload.get("name");
+
+        User user = userRepository.findByGoogleAccountId(userId).orElse(null);
+
+        if (user == null && email != null) {
+            user = userRepository.findByEmail(email).orElse(null);
+            if (user != null) {
+                user.setGoogleAccountId(userId);
+                userRepository.save(user);
+            }
+        }
+
+        if (user == null) {
+            user = User.builder()
+                    .googleAccountId(userId)
+                    .email(email)
+                    .username("google_" + userId)
+                    .fullName(name)
+                    .role(Role.CUSTOMER)
+                    .active(true)
+                    .build();
+            userRepository.save(user);
+        }
+
+        AuditLog logAction = AuditLog.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .action("GOOGLE_LOGIN")
+                .details("Người dùng đăng nhập bằng Google")
+                .createdAt(LocalDateTime.now())
+                .build();
+        auditLogRepository.save(logAction);
+
+        return AuthResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole().name())
+                .build();
     }
 
     @Override

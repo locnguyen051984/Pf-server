@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -29,32 +28,17 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<com.Pf.auth_service.dto.RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
-        try {
-            com.Pf.auth_service.dto.RegisterResponse result = authService.register(request);
-            return ResponseEntity.ok(result);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        return ResponseEntity.ok(authService.register(request));
     }
 
     @PostMapping("/login")
     public ResponseEntity<com.Pf.auth_service.dto.AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        try {
-            com.Pf.auth_service.dto.AuthResponse result = authService.login(request);
-            return ResponseEntity.ok(result);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        return ResponseEntity.ok(authService.login(request));
     }
 
     @PostMapping("/google")
     public ResponseEntity<com.Pf.auth_service.dto.AuthResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
-        try {
-            com.Pf.auth_service.dto.AuthResponse result = authService.googleLogin(request);
-            return ResponseEntity.ok(result);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        return ResponseEntity.ok(authService.googleLogin(request));
     }
 
     // ==========================================
@@ -70,12 +54,8 @@ public class AuthController {
     @DeleteMapping("/users/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteUser(@PathVariable Long id) {
-        try {
-            authService.deleteUser(id);
-            return ResponseEntity.ok("Người dùng đã bị khóa (ban) thành công");
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        authService.deleteUser(id);
+        return ResponseEntity.ok("Người dùng đã bị khóa (ban) thành công");
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/admin-test")
