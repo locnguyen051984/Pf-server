@@ -1,4 +1,4 @@
-package com.Pf.api_getway;
+package com.Pf.api_gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
